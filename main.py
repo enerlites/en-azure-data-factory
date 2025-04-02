@@ -1,6 +1,5 @@
-url = 'https://topgreener-my.sharepoint.com/personal/andrew_chen_enerlites_com/Documents/sku%20promotion/Promotion%20Data.xlsx'
+import os 
+import pandas as pd
+from sqlalchemy import create_engine
 
-url_parts = url.split('/personal/')
-
-for part in url_parts:
-    print(part)
+promo_sku_base = pd.read_excel('./data/Promotion%20Data.xlsx', sheet_name='v2 (prefer)sku')
