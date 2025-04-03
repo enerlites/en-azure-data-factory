@@ -16,6 +16,9 @@ def oneDrive_2_azure(fp, sheet, table, table_cols):
     engine = create_engine(DB_CONN)
     try:
         df['sys_dt'] = pd.to_datetime('now')
+
+        if "promo dt" in df.columns:
+            df["promo dt"] = pd.to_datetime(df["promo dt"],format="mixed",errors='coerce')
         df.columns = table_cols
         df.to_sql(
             name=table,
@@ -35,3 +38,6 @@ def oneDrive_2_azure(fp, sheet, table, table_cols):
 if __name__ == '__main__':
     sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level','sys_dt']
     oneDrive_2_azure(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'oneDrive_promo_sku_base', sku_baseCols)
+
+    sku_hstCols = ['promo_dt','promo_cat','sku','sys_dt']
+    oneDrive_2_azure(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'past sku promo', 'oneDrive_hst_promo_sku', sku_hstCols)
