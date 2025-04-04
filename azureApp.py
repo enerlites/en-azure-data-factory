@@ -1,3 +1,7 @@
+'''
+Below Script requires Application Permissions (API permission) --> Run as background service without signed-in user
+
+'''
 import os
 import msal
 import requests
@@ -14,7 +18,7 @@ class OneDriveExcelReader:
         self.client_id = os.getenv("AZ_CLI_ID")
         self.client_secret = os.getenv("AZ_CLI_SECRET")
         self.tenant_id = os.getenv("AZ_TENANT_ID")
-        self.user_principal = "andrew_chen_enerlites_com"
+        self.user_principal = "andrew.chen.enerlites.com"
         self.base_graph_url = "https://graph.microsoft.com/v1.0"
     
     # get the Azure access token
@@ -47,7 +51,7 @@ class OneDriveExcelReader:
         
         return response.json()["id"]
 
-    # Get download URL based on driveer id and file_path
+    # Get download URL based on driver id and file_path
     def get_downlaod_url(self, drive_id, file_path):
         """Construct the download URL for a file in OneDrive"""
         # Properly encode the path while preserving forward slashes
