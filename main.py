@@ -24,7 +24,7 @@ def get_oneDrive_File(url, access_token):
     res = requests.get(url, headers=headers)
     return BytesIO(res.content)         # return an xlsx file 
 
-def oneDrive_2_azure(fp, sheet, table, table_cols):
+def local_2_azure(fp, sheet, table, table_cols):
     df = pd.read_excel(fp,sheet, usecols= lambda x: not x.startswith("Unnamed"))
 
     engine = create_engine(DB_CONN)
@@ -54,7 +54,7 @@ def googleDrive_2_azure(fp, sheet, table, table_cols):
 
 if __name__ == '__main__':
     sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level','sys_dt']
-    oneDrive_2_azure(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'oneDrive_promo_sku_base', sku_baseCols)
+    local_2_azure(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'oneDrive_promo_sku_base', sku_baseCols)
 
     sku_hstCols = ['promo_dt','promo_cat','sku','sys_dt']
-    oneDrive_2_azure(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'past sku promo', 'oneDrive_hst_promo_sku', sku_hstCols)
+    local_2_azure(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'past sku promo', 'oneDrive_hst_promo_sku', sku_hstCols)
