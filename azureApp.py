@@ -18,7 +18,7 @@ class OneDriveExcelReader:
         self.client_id = os.getenv("AZ_CLI_ID")
         self.client_secret = os.getenv("AZ_CLI_SECRET")
         self.tenant_id = os.getenv("AZ_TENANT_ID")
-        self.user_principal = "andrew.chen.enerlites.com"
+        self.user_principal = "andrew.chen@enerlites.com"
         self.base_graph_url = "https://graph.microsoft.com/v1.0"
     
     # get the Azure access token
@@ -33,6 +33,7 @@ class OneDriveExcelReader:
         result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
 
         if "access_token" in result:
+            print(f"\naccess token = {result["access_token"]}\n")
             return result["access_token"]
         else:
             error_details = result.get("error_description", "No error description provided")
@@ -49,10 +50,12 @@ class OneDriveExcelReader:
         if response.status_code != 200:
             raise Exception(f"Failed to get drive info: {response.status_code} - {response.text}")
         
+        print(f"\ndriver id = {response.json()["id"]}\n")
+        
         return response.json()["id"]
 
     # Get download URL based on driver id and file_path
-    def get_downlaod_url(self, drive_id, file_path):
+    def get_download_url(self, drive_id, file_path):
         """Construct the download URL for a file in OneDrive"""
         # Properly encode the path while preserving forward slashes
         encoded_path = quote(file_path.strip('/'))
@@ -83,7 +86,7 @@ class OneDriveExcelReader:
         try:
             access_token = self.get_access_token()
             drive_id = self.get_drive_id(access_token)
-            download_url = self.get_downlaod_url(drive_id, file_relative_path)
+            download_url = self.get_download_url(drive_id, file_relative_path)
             df = self.url2pd(download_url, access_token, sheet_name)
             display(df.head(5))
         except Exception as e:
