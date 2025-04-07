@@ -24,7 +24,7 @@ def get_oneDrive_File(url, access_token):
     res = requests.get(url, headers=headers)
     return BytesIO(res.content)         # return an xlsx file 
 
-def local_2_azure(fp, sheet, table, table_cols):
+def oneDrive_2_db(fp, sheet, table, table_cols):
     df = pd.read_excel(fp,sheet, usecols= lambda x: not x.startswith("Unnamed"))
 
     engine = create_engine(DB_CONN)
@@ -49,12 +49,66 @@ def local_2_azure(fp, sheet, table, table_cols):
     finally:
         engine.dispose()
 
-def googleDrive_2_azure(fp, sheet, table, table_cols):
-    pass
+'''
+With 2nd normal form in consideration:
+each nonKey Cols --> PK 
+
+'''
+def googleDrive_2_db(fp, table, table_cols):
+    engine = create_engine(DB_CONN)
+    # Skip the first 3 rows and read up until the 17th col and don't promote header
+    df = pd.read_csv(fp, header= None, skiprows=3, usecols = range(len(table_cols)-1))
+        
+    df["sys_dt"] = pd.to_datetime('now')
+    df.columns = table_cols
+    
+    print(df.iloc[:,5:-1].shape)
+    
+    # cast all numeric fields to Int64
+    for col in df.columns[5:-1]:
+        df[col] = df[col].astype('Int64')
+    
+    batch_size = 500
+    for i in range(0, len(df), batch_size):
+        batch = df.iloc[i:i + batch_size]
+        batch.to_sql(
+            name=table,
+            con=engine,
+            schema="landing",
+            if_exists="append",
+            index=False,
+            method= None,
+            chunksize=batch_size
+        )
+    print(f"Successfully wrote {len(df)} rows to {table}")
+
 
 if __name__ == '__main__':
-    sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level','sys_dt']
-    local_2_azure(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'oneDrive_promo_sku_base', sku_baseCols)
+    # sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level','sys_dt']
+    # oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'oneDrive_promo_sku_base', sku_baseCols)
 
-    sku_hstCols = ['promo_dt','promo_cat','sku','sys_dt']
-    local_2_azure(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'past sku promo', 'oneDrive_hst_promo_sku', sku_hstCols)
+    # sku_hstCols = ['promo_dt','promo_cat','sku','sys_dt']
+    # oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'past sku promo', 'oneDrive_hst_promo_sku', sku_hstCols)
+    
+    # process oceanAir Inventory file from google drive
+    oceanAirInvCols = [
+        "co_cd",
+        "inv_level",
+        "sku",
+        "asin_num",
+        "sku_cat",
+        "en_last_120_outbound",
+        "en_last_90_outbound",
+        "en_last_60_outbound",
+        "en_last_30_outbound",
+        "tg_last_120_outbound",
+        "tg_last_90_outbound",
+        "tg_last_60_outbound",
+        "tg_last_30_outbound",
+        "ca_instock_quantity",
+        "il_instock_quantity",
+        "lda_instock_quantity",
+        "tg_instock_quantity",
+        "sys_dt"
+    ]
+    googleDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Ocean_Air in Transit List.csv", "googleDrive_ocean_air_inv_fct", oceanAirInvCols)
