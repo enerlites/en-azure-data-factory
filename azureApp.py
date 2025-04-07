@@ -65,6 +65,7 @@ class OneDriveExcelReader:
             res.raise_for_status()
             
             items = res.json().get('value', [])
+            print(f"Items inside of the folder: {items}")
             for item in items:
                 if item['name'].lower() == fileName.lower():
                     print(f"\nfile id = {item['id']}\n")
