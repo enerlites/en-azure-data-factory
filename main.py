@@ -24,20 +24,25 @@ def get_oneDrive_File(url, access_token):
     res = requests.get(url, headers=headers)
     return BytesIO(res.content)         # return an xlsx file 
 
-def oneDrive_2_db(fp, sheet, table, table_cols):
+def oneDrive_2_db(fp, sheet, schema, table, table_cols):
     df = pd.read_excel(fp,sheet, usecols= lambda x: not x.startswith("Unnamed"))
 
     engine = create_engine(DB_CONN)
     try:
         df['sys_dt'] = pd.to_datetime('now')
 
+        # handle mixed date as input
         if "promo dt" in df.columns:
             df["promo dt"] = pd.to_datetime(df["promo dt"],format="mixed",errors='coerce')
+            
+        # handle manual input err
+        elif "Promotion Reason" in df.columns:
+            df["Promotion Reason"] = df["Promotion Reason"].apply(lambda x: 'Discontinued' if x == 'Disontinued' else x)
         df.columns = table_cols
         df.to_sql(
             name=table,
             con=engine,
-            schema="landing",
+            schema=schema,
             index = False,
             method="multi",
             if_exists= "append"     # Given that schema is defined in SQL Server
@@ -86,10 +91,10 @@ def googleDrive_2_db(fp, table, table_cols):
 if __name__ == '__main__':
     # process OneDrive xlsx file 
     sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level','sys_dt']
-    oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'oneDrive_promo_sku_base', sku_baseCols)
+    oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'landing', 'oneDrive_promo_sku_base', sku_baseCols)
 
     sku_hstCols = ['promo_dt','promo_cat','sku','sys_dt']
-    oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'past sku promo', 'oneDrive_hst_promo_sku', sku_hstCols)
+    oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'past sku promo', 'landing', 'oneDrive_hst_promo_sku', sku_hstCols)
     
     # process oceanAir Inventory file from google drive
     oceanAirInvCols = [
