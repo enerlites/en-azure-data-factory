@@ -84,11 +84,12 @@ def googleDrive_2_db(fp, table, table_cols):
 
 
 if __name__ == '__main__':
-    # sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level','sys_dt']
-    # oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'oneDrive_promo_sku_base', sku_baseCols)
+    # process OneDrive xlsx file 
+    sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level','sys_dt']
+    oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'oneDrive_promo_sku_base', sku_baseCols)
 
-    # sku_hstCols = ['promo_dt','promo_cat','sku','sys_dt']
-    # oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'past sku promo', 'oneDrive_hst_promo_sku', sku_hstCols)
+    sku_hstCols = ['promo_dt','promo_cat','sku','sys_dt']
+    oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'past sku promo', 'oneDrive_hst_promo_sku', sku_hstCols)
     
     # process oceanAir Inventory file from google drive
     oceanAirInvCols = [
