@@ -38,6 +38,8 @@ def oneDrive_2_db(fp, sheet, schema, table, table_cols):
         # handle manual input err
         elif "Promotion Reason" in df.columns:
             df["Promotion Reason"] = df["Promotion Reason"].apply(lambda x: 'Discontinued' if x == 'Disontinued' else x)
+        elif "promo category" in df.columns:
+            df["promo category"] = df["promo category"].apply(lambda x: 'Discontinued' if x == 'Discontinued item' else x)            
         df.columns = table_cols
         df.to_sql(
             name=table,
