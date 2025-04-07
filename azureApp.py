@@ -53,14 +53,36 @@ class OneDriveExcelReader:
         print(f"\ndriver id = {response.json()["id"]}\n")
         
         return response.json()["id"]
+    
+    # Get file id from given folder 
+    def get_file_id(self, access_token, driver_id, folderPath, fileName):
+        encoded_path = quote(folderPath.strip('/'))
+        url = f"{self.base_graph_url}/drives/{driver_id}/root:/{encoded_path}:/children"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        
+        try:
+            res = requests.get(url, headers= headers, timeout= 30)
+            res.raise_for_status()
+            
+            items = res.json().get('value', [])
+            for item in items:
+                if item['name'].lower() == fileName.lower():
+                    print(f"\nfile id = {item['id']}\n")
+                    return item['id']
+            
+            # file not found
+            return None
+            
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to search folder: {str(e)}")
 
-    # Get download URL based on driver id and file_path
-    def get_download_url(self, drive_id, file_path):
-        """Construct the download URL for a file in OneDrive"""
-        # Properly encode the path while preserving forward slashes
-        encoded_path = quote(file_path.strip('/'))
-        return f"{self.base_graph_url}/drives/{drive_id}/root:/{encoded_path}:/content"
-
+    # get download url based on drive_id & file_id
+    def get_download_url(self, drive_id, file_id):
+        if not file_id:     # file not found 
+            raise Exception (f"Error: File not found in OneDrive Folder !")
+        
+        return f"{self.base_graph_url}/drives/{drive_id}/items/{file_id}/content"
+            
     def url2pd(self, download_url, access_token, sheet_name=None):
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -81,27 +103,31 @@ class OneDriveExcelReader:
         except Exception as e:
             raise Exception(f"Excel parsing failed: {str(e)}")
 
-    def read_excel_from_onedrive(self, file_relative_path, sheet_name=None):
+    def read_excel_from_onedrive(self, folderPath, fileName, sheet_name=None):
         """Main method to read Excel from OneDrive"""
         try:
             access_token = self.get_access_token()
             drive_id = self.get_drive_id(access_token)
-            download_url = self.get_download_url(drive_id, file_relative_path)
-            df = self.url2pd(download_url, access_token, sheet_name)
-            display(df.head(5))
+            file_id = self.get_file_id(access_token, drive_id, folderPath,fileName)
+            download_url = self.get_download_url(drive_id, file_id)
+            print(download_url)
+            # df = self.url2pd(download_url, access_token, sheet_name)
+            # display(df.head(5))
         except Exception as e:
-            raise Exception(f"Failed to read Excel from OneDrive: {str(e)}")
+            raise Exception(f"{str(e)}")
 
 def main():
     try:
         reader = OneDriveExcelReader()
         
         # Relative path from the user's OneDrive root
-        file_relative_path = "Documents/sku promotion/Promotion Data.xlsx"
+        folderPath = "Documents/sku promotion"
+        fileName = 'Promotion Data.xlsx'
         
         # Read the Excel file (specify sheet name if needed)
         df = reader.read_excel_from_onedrive(
-            file_relative_path,
+            folderPath,
+            fileName,
             sheet_name='potential_skus'  # Optional: specify which sheet to read
         )
         
@@ -110,7 +136,7 @@ def main():
         return df
         
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"{str(e)}")
         return None
 
 if __name__ == "__main__":
