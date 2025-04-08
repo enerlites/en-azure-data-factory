@@ -14,7 +14,7 @@ from io import BytesIO
 
 # load env vars from .env
 load_dotenv()
-DB_CONN = f"mssql+pyodbc://sqladmin:{urllib.parse.quote_plus(os.getenv("DB_PASS"))}@{os.getenv("DB_SERVER")}/master?driver=ODBC+Driver+17+for+SQL+Server&encrypt=yes"
+DB_CONN = f"mssql+pyodbc://sqladmin:{urllib.parse.quote_plus(os.getenv("DB_PASS"))}@{os.getenv("DB_SERVER")}:1433/enerlitesDB?driver=ODBC+Driver+17+for+SQL+Server&encrypt=yes"
 
 def get_oneDrive_File(url, access_token):
     headers = {
@@ -92,7 +92,7 @@ def googleDrive_2_db(fp, table, table_cols):
 
 if __name__ == '__main__':
     # process OneDrive xlsx file 
-    sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level','sys_dt']
+    sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level', 'photo_url', 'sys_dt']
     oneDrive_2_db(r"C:\Users\andrew.chen\Desktop\Enerlites\Promotion Analytics\data\Promotion Data.xlsx", 'potential_skus', 'landing', 'oneDrive_promo_sku_base', sku_baseCols)
 
     sku_hstCols = ['promo_dt','promo_cat','sku','sys_dt']
