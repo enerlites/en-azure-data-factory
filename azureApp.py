@@ -35,7 +35,6 @@ class OneDriveExcelReader:
         result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
 
         if "access_token" in result:
-            print(f"\naccess token = {result["access_token"]}\n")
             return result["access_token"]
         else:
             error_details = result.get("error_description", "No error description provided")
@@ -64,50 +63,44 @@ class OneDriveExcelReader:
             raise Exception(f"Failed to get drive info: {str(e)}")
     
     # Get file id with (access_token, driver_id, folderName)
-    def get_file_id(self, access_token, driver_id, folderName, fileName):
-        folderUrl = f"{self.base_graph_url}/drives/{driver_id}/root/children"
+    def get_fileDownload_url(self, access_token, driver_id, folderName, fileName):
+        oneDriveBaseURL = f"{self.base_graph_url}/drives/{driver_id}"
+        FolderURL = f"{oneDriveBaseURL}/root/children"
         headers = {"Authorization": f"Bearer {access_token}"}
         
         try:
-            res = requests.get(folderUrl, headers= headers, timeout= 30)
-            items = res.json().get('value', [])
+            res = requests.get(FolderURL, headers= headers, timeout= 30)
+            items = res.json().get('value', [])         # return a list of python dict
+            folderId = None
             
-            # folder name not exists
-            if folderName not in items:
-                print(f"\'{folderName}\' folder not found with root directory = {items}")
-                return None
-            else:
-                folder_id = items.index(folderName)['id']
-                fileUrl = f"{self.base_graph_url}/drives/{driver_id}/items/{folder_id}/children"
-                res = requests.get(fileUrl, headers= headers, timeout=30)
-                subItems = res.json().get('value', [])
-                
-                if fileName not in subItems:
-                    print(f"\'{fileName}\' not exists in {folderName} = {subItems}")
-                    return None
-                else:
-                    return subItems.index(fileName)['id']
+            # found foldername first within the oneDrive root dir
+            for item in items:
+                if item['name'] == folderName:          # return specified folder id
+                    print(f"\n{folderName} folder found in OneDrive !\n")
+                    folderId = item["id"]
+                    FileURL = f"{oneDriveBaseURL}/items/{folderId}/children"
+                    res = requests.get(FileURL, headers = headers, timeout= 30)
+                    fileItems = res.json().get('value', [])
+                    
+                    for item in fileItems:
+                        if item['name'] == fileName:
+                            return item['@microsoft.graph.downloadUrl']
+            print(f"Given {fileName} not found in {folderName} folder !")         
+            return None
+
         except requests.exceptions.RequestException as e:
             print(f"Error searching for folder/file: {str(e)}")
             return None
-
-    # get download url based on drive_id & file_id
-    def get_download_url(self, drive_id, file_id):
-        if not file_id:     # file not found 
-            raise Exception (f"Error: File not found in OneDrive Folder !")
-        
-        return f"{self.base_graph_url}/drives/{drive_id}/items/{file_id}/content"
-            
-    def url2pd(self, download_url, access_token, sheet_name=None):
+    
+    # read dataframe from ms download link        
+    def url2df(self, download_url, access_token, sheet_name=None):
         headers = {
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/octet-stream"  # More appropriate for file download
+            "Authorization": f"Bearer {access_token}"
         }
         
         try:
             response = requests.get(download_url, headers=headers, timeout=30)
-            response.raise_for_status()  # Will raise HTTPError for 4XX/5XX status codes
-            
+                        
             return pd.read_excel(
                 BytesIO(response.content),
                 sheet_name=sheet_name,
@@ -118,20 +111,19 @@ class OneDriveExcelReader:
         except Exception as e:
             raise Exception(f"Excel parsing failed: {str(e)}")
 
-    def read_excel_from_onedrive(self, folderPath, fileName, sheet_name=None):
+    def read_excel_from_onedrive(self, folderName, fileName, sheet_name=None):
         """Main method to read Excel from OneDrive"""
         try:
             access_token = self.get_access_token()
             drive_id = self.get_drive_id(access_token)
-            file_id = self.get_file_id(access_token, drive_id, folderPath,fileName)
-            download_url = self.get_download_url(drive_id, file_id)
-            print(download_url)
-            df = self.url2pd(download_url, access_token, sheet_name)
+            download_url = self.get_fileDownload_url(access_token,drive_id,folderName,fileName)
+            print(f"\nDownload URL = {download_url}\n")
+            df = self.url2df(download_url, access_token, sheet_name)
             display(df.head(5))
         except Exception as e:
             raise Exception(f"{str(e)}")
 
-def main():
+if __name__ == "__main__":
     try:
         reader = OneDriveExcelReader()
         
@@ -148,11 +140,6 @@ def main():
         
         print("Successfully loaded Excel file:")
         print(df.head())
-        return df
         
     except Exception as e:
         print(f"{str(e)}")
-        return None
-
-if __name__ == "__main__":
-    main()
