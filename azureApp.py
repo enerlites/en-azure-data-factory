@@ -11,11 +11,11 @@ from io import BytesIO
 from dotenv import load_dotenv
 from urllib.parse import quote
 from IPython import display
+from sqlalchemy import create_engine
+import urllib.parse;
 
-# https://topgreener-my.sharepoint.com/:x:/g/personal/andrew_chen_enerlites_com/EXUvkiPOiVVEkiSkkbB6n84BkTEP2oEfcedADgU3_yES_A?e=RPbUx0
-
-# create a class with all functionalities 
-class OneDriveExceloneDriveReader:
+# OneDrive class for all oneDrive functionalities
+class OneDriveFlatFileReader:
     def __init__(self, corporateEmail):
         load_dotenv()
         self.client_id = os.getenv("AZ_CLI_ID")
@@ -24,7 +24,7 @@ class OneDriveExceloneDriveReader:
         self.user_principal = corporateEmail
         self.base_graph_url = "https://graph.microsoft.com/v1.0"
     
-    # get the Azure access token (private func)
+    # get the Azure access token
     def __get_access_token(self):
         authority = f"https://login.microsoftonline.com/{self.tenant_id}"
         app = msal.ConfidentialClientApplication(
@@ -41,7 +41,7 @@ class OneDriveExceloneDriveReader:
             error_details = result.get("error_description", "No error description provided")
             raise Exception(f"Authentication failed: {result.get('error')} - {error_details}")
     
-    # get principal user's driver_id (private func)
+    # get principal user's driver_id
     def __get_drive_id(self, access_token):
         url = f"{self.base_graph_url}/users/{self.user_principal}/drive"
         
@@ -107,7 +107,8 @@ class OneDriveExceloneDriveReader:
             df = pd.read_excel(
                 excelData,
                 sheet_name=sheet_name,
-                engine='openpyxl'
+                engine='openpyxl',
+                usecols= lambda x: not x.startswith("Unnamed")              # don't read Unnamed cols 
             )
             print(f"[DEBUG] DataFrame created with shape: {df.shape}")
             return df
@@ -116,7 +117,7 @@ class OneDriveExceloneDriveReader:
         except Exception as e:
             raise Exception(f"Excel parsing failed: {str(e)}")
 
-    def read_excel_from_onedrive(self, folderName, fileName, sheet_name=None):      # public func for this class
+    def read_excel_from_onedrive(self, folderName, fileName, sheet_name=None):
         # driver function that coordinates all private / public class functions
         try:
             access_token = self.__get_access_token()
@@ -126,12 +127,59 @@ class OneDriveExceloneDriveReader:
 
         except Exception as e:
             raise Exception(f"{str(e)}")
+        
+# DB class for Azure SQL db functions
+class AzureDBWriter():
+    def __init__(self):
+        load_dotenv()           # load the .env vars
+        self.DB_CONN = f"mssql+pyodbc://sqladmin:{urllib.parse.quote_plus(os.getenv("DB_PASS"))}@{os.getenv("DB_SERVER")}:1433/enerlitesDB?driver=ODBC+Driver+17+for+SQL+Server&encrypt=yes"
+    
+    # OceanAir Inventory google xlsx sheet preprocessing
+    def oceanAir_Inv_preprocess(self, df, tableCols):
+        pass
+    
+    # commit flatFile 2 azure db 
+    def flatFile2db (self, schema, table, tableCols, df):
+        engine = create_engine(self.DB_CONN)
+        try:
+            # append getdate() datetim2 
+            df['sys_dt'] = pd.to_datetime('now')
 
+            '''Below section for data cleaning prior to db load'''
+            if "promo dt" in df.columns:
+                df["promo dt"] = pd.to_datetime(df["promo dt"],format="mixed",errors='coerce') 
+            # handle manual input err
+            elif "Promotion Reason" in df.columns:
+                df["Promotion Reason"] = df["Promotion Reason"].apply(lambda x: 'Discontinued' if x == 'Disontinued' else x)
+            elif "promo category" in df.columns:
+                df["promo category"] = df["promo category"].apply(lambda x: 'Discontinued' if x == 'Discontinued item' else x)   
+            # persist df name with that of defined in ssms          
+            df.columns = tableCols
+            
+            batch_size = 500
+            for i in range(0, len(df), batch_size):
+                batch = df.iloc[i:i + batch_size]
+                batch.to_sql(
+                    name=table,
+                    con=engine,
+                    schema=schema,
+                    if_exists="append",
+                    index=False,
+                    method= None,
+                    chunksize=batch_size
+                )
+            print(f"Successfully wrote {len(df)} rows to {table}")
+            
+        except Exception as e:
+            print(f"Error writing to database: {str(e)}")
+        finally:
+            engine.dispose()
+                
 # Test Section 
 if __name__ == "__main__":
     try:
         # create an instance to read from andrew.chen@enerlites.com
-        oneDriveReader = OneDriveExceloneDriveReader("andrew.chen@enerlites.com")
+        oneDriveReader = OneDriveFlatFileReader("andrew.chen@enerlites.com")
         
         # Relative path from the user's OneDrive root
         folderPath = "sku promotion"
