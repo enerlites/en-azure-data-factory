@@ -244,7 +244,8 @@ def monthly_promotion_brochure_job():
         oceanAirInv_db = AzureDBWriter(oceanAirInv_df,oceanAirInvCols)
         oceanAirInv_db.oceanAir_Inv_preprocess()
         oceanAirInv_db.flatFile2db('landing', 'googleDrive_ocean_air_inv_fct')
-        print(f"monthly_promotion_brochure_auto_job() exced at {datetime.now()} !\n")
+        print(f">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+        print(f"monthly_promotion_brochure_auto_job() executed at {datetime.now()} !\n")
         
     except Exception as e:
         print(f"{str(e)}")    
@@ -255,9 +256,10 @@ if __name__ == "__main__":
     # # exec once
     # monthly_promotion_brochure_job()
     
-    # exec this job on 15th at 12 am
-    schedule.every().day.at("00:00").do(lambda: monthly_promotion_brochure_job() if datetime.now().day == 15 else None)
+    # exec this job on 15th at 12:30 am
+    schedule.every().day.at("00:30").do(lambda: monthly_promotion_brochure_job() if datetime.now().day == 15 else None)
+
+    print("========================== Executing Monthly SKU Promotion Task ================================")
     while True:
-        print("========================== Running Script and Check at a daily basis ================================")
         schedule.run_pending()
-        time.sleep(60*60*24)  # check every day
+        time.sleep(60)  # wait for each 1 minute
