@@ -107,8 +107,7 @@ class OneDriveFlatFileReader:
             df = pd.read_excel(
                 excelData,
                 sheet_name=sheet_name,
-                engine='openpyxl',
-                usecols= lambda x: not x.startswith("Unnamed")              # don't read Unnamed cols 
+                engine='openpyxl'
             )
             print(f"[DEBUG] DataFrame created with shape: {df.shape}")
             return df
@@ -130,18 +129,28 @@ class OneDriveFlatFileReader:
         
 # DB class for Azure SQL db functions
 class AzureDBWriter():
-    def __init__(self):
+    def __init__(self, df = None, tableCols = None):
         load_dotenv()           # load the .env vars
         self.DB_CONN = f"mssql+pyodbc://sqladmin:{urllib.parse.quote_plus(os.getenv("DB_PASS"))}@{os.getenv("DB_SERVER")}:1433/enerlitesDB?driver=ODBC+Driver+17+for+SQL+Server&encrypt=yes"
-    
+        self.myDf = df 
+        self.myCols = tableCols
+        
     # OceanAir Inventory google xlsx sheet preprocessing
-    def oceanAir_Inv_preprocess(self, df, tableCols):
-        pass
+    # Skip the first 3 rows and only read in len(tableCols) -1 cols
+    def oceanAir_Inv_preprocess(self):
+        new_df = self.myDf.copy()
+        tableCols = self.myCols
+        new_df = new_df.iloc[3:, len(tableCols) - 1]
+        for col in new_df.columns[5:-1]:
+                new_df[col] = new_df[col].astype('Int64')
+        self.myDf = new_df
     
     # commit flatFile 2 azure db 
-    def flatFile2db (self, schema, table, tableCols, df):
+    def flatFile2db (self, schema, table):
         engine = create_engine(self.DB_CONN)
         try:
+            df = self.myDf.copy()
+            tableCols = self.myCols
             # append getdate() datetim2 
             df['sys_dt'] = pd.to_datetime('now')
 
@@ -155,6 +164,7 @@ class AzureDBWriter():
                 df["promo category"] = df["promo category"].apply(lambda x: 'Discontinued' if x == 'Discontinued item' else x)   
             # persist df name with that of defined in ssms          
             df.columns = tableCols
+            self.myDf = df
             
             batch_size = 500
             for i in range(0, len(df), batch_size):
@@ -181,19 +191,57 @@ if __name__ == "__main__":
         # create an instance to read from andrew.chen@enerlites.com
         oneDriveReader = OneDriveFlatFileReader("andrew.chen@enerlites.com")
         
-        # Relative path from the user's OneDrive root
+        # Define file management related fields
         folderPath = "sku promotion"
-        fileName = 'Promotion Data.xlsx'
+        files = ['Promotion Data.xlsx', 'Ocean_Air in Transit List.xlsx']
+        sku_baseCols = ['sku','category','promo_reason','descrip','moq','socal', 'ofs','free_sku','feb_sales','inv_quantity','inv_level', 'photo_url', 'sys_dt']
+        sku_hstCols = ['promo_dt','promo_cat','sku','sys_dt']
+        oceanAirInvCols = [
+            "co_cd",
+            "inv_level",
+            "sku",
+            "asin_num",
+            "sku_cat",
+            "en_last_120_outbound",
+            "en_last_90_outbound",
+            "en_last_60_outbound",
+            "en_last_30_outbound",
+            "tg_last_120_outbound",
+            "tg_last_90_outbound",
+            "tg_last_60_outbound",
+            "tg_last_30_outbound",
+            "ca_instock_quantity",
+            "il_instock_quantity",
+            "lda_instock_quantity",
+            "tg_instock_quantity",
+            "sys_dt"
+        ]
         
-        # Read the Excel file (specify sheet name if needed)
-        df = oneDriveReader.read_excel_from_onedrive(
+        # load potential sku from OneDrive first
+        sku_base_df = oneDriveReader.read_excel_from_onedrive(
             folderPath,
-            fileName,
-            sheet_name='potential_skus'  # Optional: specify which sheet to read
+            files[0],
+            sheet_name='potential_skus'
+        )
+        hst_sku_df = oneDriveReader.read_excel_from_onedrive(
+            folderPath,
+            files[0],
+            sheet_name='past sku promo'
+        )
+        oceanAirInv_df = oneDriveReader.read_excel_from_onedrive(
+            folderPath,
+            files[1],
+            sheet_name='Friday Inventory TGEN'
         )
         
-        print("Successfully loaded Excel file:")
-        print(df.head())
+        # below for loading to db
+        sku_base_db = AzureDBWriter(sku_base_df,sku_baseCols)
+        sku_base_db.flatFile2db('landing', 'oneDrive_promo_sku_base')
+        hst_sku_db = AzureDBWriter(hst_sku_df,sku_hstCols)
+        hst_sku_db.flatFile2db('landing', 'oneDrive_hst_promo_sku')
+        oceanAirInv_db = AzureDBWriter(oceanAirInv_df,oceanAirInvCols)
+        oceanAirInv_db.oceanAir_Inv_preprocess()        # first preprocess the xlsx
+        oceanAirInv_db.flatFile2db('landing', 'googleDrive_ocean_air_inv_fct')
         
     except Exception as e:
         print(f"{str(e)}")
