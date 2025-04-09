@@ -12,7 +12,10 @@ from dotenv import load_dotenv
 from urllib.parse import quote
 from IPython import display
 from sqlalchemy import create_engine
-import urllib.parse;
+import urllib.parse
+import schedule 
+import time 
+from datetime import datetime
 
 # OneDrive class for all oneDrive functionalities
 class OneDriveFlatFileReader:
@@ -182,9 +185,9 @@ class AzureDBWriter():
             print(f"Error writing to database: {str(e)}")
         finally:
             engine.dispose()
-                
-# Test Section 
-if __name__ == "__main__":
+
+# Define a monthly scheduler that run the cron procedures at 12 AM on 15th of each month
+def monthly_promotion_brochure_job():
     try:
         # create an instance to read from andrew.chen@enerlites.com
         oneDriveReader = OneDriveFlatFileReader("andrew.chen@enerlites.com")
@@ -241,6 +244,20 @@ if __name__ == "__main__":
         oceanAirInv_db = AzureDBWriter(oceanAirInv_df,oceanAirInvCols)
         oceanAirInv_db.oceanAir_Inv_preprocess()
         oceanAirInv_db.flatFile2db('landing', 'googleDrive_ocean_air_inv_fct')
+        print(f"monthly_promotion_brochure_auto_job() exced at {datetime.now()} !\n")
         
     except Exception as e:
-        print(f"{str(e)}")
+        print(f"{str(e)}")    
+        
+           
+# Test Section 
+if __name__ == "__main__":
+    # # exec once
+    # monthly_promotion_brochure_job()
+    
+    # exec this job on 15th at 12 am
+    schedule.every().day.at("00:00").do(lambda: monthly_promotion_brochure_job() if datetime.now().day == 15 else None)
+    while True:
+        print("========================== Running Script and Check at a daily basis ================================")
+        schedule.run_pending()
+        time.sleep(60*60*24)  # check every day
