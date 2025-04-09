@@ -77,7 +77,7 @@ class OneDriveFlatFileReader:
             # found foldername first within the oneDrive root dir
             for item in items:
                 if item['name'] == folderName:          # return specified folder id
-                    print(f"\n{folderName} folder found in OneDrive !\n")
+                    # print(f"\n{folderName} folder found in OneDrive !\n")
                     folderId = item["id"]
                     FileURL = f"{oneDriveBaseURL}/items/{folderId}/children"
                     res = requests.get(FileURL, headers = headers, timeout= 30)
@@ -129,22 +129,20 @@ class OneDriveFlatFileReader:
         
 # DB class for Azure SQL db functions
 class AzureDBWriter():
-    def __init__(self, df = None, tableCols = None):
+    def __init__(self, df, tableCols):
         load_dotenv()           # load the .env vars
         self.DB_CONN = f"mssql+pyodbc://sqladmin:{urllib.parse.quote_plus(os.getenv("DB_PASS"))}@{os.getenv("DB_SERVER")}:1433/enerlitesDB?driver=ODBC+Driver+17+for+SQL+Server&encrypt=yes"
         self.myDf = df 
         self.myCols = tableCols
         
-    # OceanAir Inventory google xlsx sheet preprocessing
+    # OceanAir Inventory google xlsx sheet preprocessing (inplace operation)
     # Skip the first 3 rows and only read in len(tableCols) -1 cols
     def oceanAir_Inv_preprocess(self):
-        new_df = self.myDf.copy()
-        tableCols = self.myCols
-        new_df = new_df.iloc[3:, len(tableCols) - 1]
-        for col in new_df.columns[5:-1]:
-                new_df[col] = new_df[col].astype('Int64')
-        self.myDf = new_df
-    
+        self.myDf = self.myDf.iloc[2:, :len(self.myCols) - 1]
+        numeric_cols = self.myDf.columns[5:-1]
+        self.myDf[numeric_cols] = self.myDf[numeric_cols].astype('Int64')
+        return self
+        
     # commit flatFile 2 azure db 
     def flatFile2db (self, schema, table):
         engine = create_engine(self.DB_CONN)
@@ -234,13 +232,14 @@ if __name__ == "__main__":
             sheet_name='Friday Inventory TGEN'
         )
         
-        # below for loading to db
+        # load 2 respective tables
         sku_base_db = AzureDBWriter(sku_base_df,sku_baseCols)
         sku_base_db.flatFile2db('landing', 'oneDrive_promo_sku_base')
         hst_sku_db = AzureDBWriter(hst_sku_df,sku_hstCols)
         hst_sku_db.flatFile2db('landing', 'oneDrive_hst_promo_sku')
+        
         oceanAirInv_db = AzureDBWriter(oceanAirInv_df,oceanAirInvCols)
-        oceanAirInv_db.oceanAir_Inv_preprocess()        # first preprocess the xlsx
+        oceanAirInv_db.oceanAir_Inv_preprocess()
         oceanAirInv_db.flatFile2db('landing', 'googleDrive_ocean_air_inv_fct')
         
     except Exception as e:
