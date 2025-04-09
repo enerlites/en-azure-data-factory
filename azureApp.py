@@ -99,13 +99,17 @@ class OneDriveExcelReader:
         }
         
         try:
-            response = requests.get(download_url, headers=headers, timeout=30)
+            res = requests.get(download_url, headers= headers, timeout=30)
+            print(f"[DEBUG] Response length: {len(res.content)} bytes")
+            excelData = BytesIO(res.content)
                         
-            return pd.read_excel(
-                BytesIO(response.content),
+            df = pd.read_excel(
+                excelData,
                 sheet_name=sheet_name,
-                engine='openpyxl'  # Explicitly specify engine for better compatibility
+                engine='openpyxl'
             )
+            print(f"[DEBUG] DataFrame created with shape: {df.shape}")
+            return df
         except requests.exceptions.RequestException as e:
             raise Exception(f"File download failed: {str(e)}")
         except Exception as e:
@@ -117,12 +121,12 @@ class OneDriveExcelReader:
             access_token = self.get_access_token()
             drive_id = self.get_drive_id(access_token)
             download_url = self.get_fileDownload_url(access_token,drive_id,folderName,fileName)
-            print(f"\nDownload URL = {download_url}\n")
-            df = self.url2df(download_url, access_token, sheet_name)
-            display(df.head(5))
+            return self.url2df(download_url, access_token, sheet_name)
+
         except Exception as e:
             raise Exception(f"{str(e)}")
 
+# Test Section 
 if __name__ == "__main__":
     try:
         reader = OneDriveExcelReader()
