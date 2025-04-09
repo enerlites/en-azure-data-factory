@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 from urllib.parse import quote
 from IPython import display
 
+# https://topgreener-my.sharepoint.com/:x:/g/personal/andrew_chen_enerlites_com/EXUvkiPOiVVEkiSkkbB6n84BkTEP2oEfcedADgU3_yES_A?e=RPbUx0
+
 # create a class with all functionalities 
 class OneDriveExcelReader:
     def __init__(self):
@@ -38,44 +40,56 @@ class OneDriveExcelReader:
         else:
             error_details = result.get("error_description", "No error description provided")
             raise Exception(f"Authentication failed: {result.get('error')} - {error_details}")
-
-    # Get the personal drive id under org OneDrive
-    def get_drive_id(self, access_token):
-        response = requests.get(
-            f"{self.base_graph_url}/users/{self.user_principal}/drive",
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=30
-        )
-        
-        if response.status_code != 200:
-            raise Exception(f"Failed to get drive info: {response.status_code} - {response.text}")
-        
-        print(f"\ndriver id = {response.json()["id"]}\n")
-        
-        return response.json()["id"]
     
-    # Get file id from given folder 
-    def get_file_id(self, access_token, driver_id, folderPath, fileName):
-        encoded_path = quote(folderPath.strip('/'))
-        url = f"{self.base_graph_url}/drives/{driver_id}/root:/{encoded_path}:/children"
+    # get principal user's driver_id
+    def get_drive_id(self, access_token):
+        url = f"{self.base_graph_url}/users/{self.user_principal}/drive"
+        
+        headers = {
+            "Authorization": f"Bearer {access_token}"
+        }
+
+        try:
+            # List all available drives (including personal OneDrive)
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.status_code == 200:
+                print(f"\n{self.user_principal} exists with drive id = \'{response.json()["id"]}\'\n")
+                return response.json()["id"]
+            elif response.status_code == 404:
+                raise Exception("OneDrive not found. It may not be provisioned yet.")
+            else:
+                raise Exception(f"API Error: {response.status_code} - {response.text}")
+
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Failed to get drive info: {str(e)}")
+    
+    # Get file id with (access_token, driver_id, folderName)
+    def get_file_id(self, access_token, driver_id, folderName, fileName):
+        folderUrl = f"{self.base_graph_url}/drives/{driver_id}/root/children"
         headers = {"Authorization": f"Bearer {access_token}"}
         
         try:
-            res = requests.get(url, headers= headers, timeout= 30)
-            res.raise_for_status()
-            
+            res = requests.get(folderUrl, headers= headers, timeout= 30)
             items = res.json().get('value', [])
-            print(f"Items inside of the folder: {items}")
-            for item in items:
-                if item['name'].lower() == fileName.lower():
-                    print(f"\nfile id = {item['id']}\n")
-                    return item['id']
             
-            # file not found
-            return None
-            
+            # folder name not exists
+            if folderName not in items:
+                print(f"\'{folderName}\' folder not found with root directory = {items}")
+                return None
+            else:
+                folder_id = items.index(folderName)['id']
+                fileUrl = f"{self.base_graph_url}/drives/{driver_id}/items/{folder_id}/children"
+                res = requests.get(fileUrl, headers= headers, timeout=30)
+                subItems = res.json().get('value', [])
+                
+                if fileName not in subItems:
+                    print(f"\'{fileName}\' not exists in {folderName} = {subItems}")
+                    return None
+                else:
+                    return subItems.index(fileName)['id']
         except requests.exceptions.RequestException as e:
-            raise Exception(f"Failed to search folder: {str(e)}")
+            print(f"Error searching for folder/file: {str(e)}")
+            return None
 
     # get download url based on drive_id & file_id
     def get_download_url(self, drive_id, file_id):
@@ -112,8 +126,8 @@ class OneDriveExcelReader:
             file_id = self.get_file_id(access_token, drive_id, folderPath,fileName)
             download_url = self.get_download_url(drive_id, file_id)
             print(download_url)
-            # df = self.url2pd(download_url, access_token, sheet_name)
-            # display(df.head(5))
+            df = self.url2pd(download_url, access_token, sheet_name)
+            display(df.head(5))
         except Exception as e:
             raise Exception(f"{str(e)}")
 
@@ -122,7 +136,7 @@ def main():
         reader = OneDriveExcelReader()
         
         # Relative path from the user's OneDrive root
-        folderPath = "Documents/sku promotion"
+        folderPath = "sku promotion"
         fileName = 'Promotion Data.xlsx'
         
         # Read the Excel file (specify sheet name if needed)
