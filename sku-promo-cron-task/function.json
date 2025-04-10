@@ -1,12 +1,12 @@
 {
-    "scriptFile": "__init__.py",
-    "bindings": [
-      {
-        "name": "mytimer",
-        "type": "timerTrigger",
-        "direction": "in",
-        "schedule": "0 30 0 15 * *",
-        "runOnStartup": false
-      }
-    ]
-  }
+  "scriptFile": "auto_sku_promo_azure.py",
+  "bindings": [
+    {
+      "name": "mytimer",
+      "type": "timerTrigger",
+      "direction": "in",
+      "schedule": "0 30 12 15 * *",
+      "runOnStartup": false
+    }
+  ]
+}
