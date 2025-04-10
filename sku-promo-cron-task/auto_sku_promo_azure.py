@@ -1,10 +1,8 @@
-import azure.functions as func
+import datetime
 import logging
-import os
 from datetime import datetime
-from oneDriveETL import *           # import module funcs
-
-app = func.FunctionApp()
+import azure.functions as func
+from oneDriveETL import *
 
 # Define a monthly scheduler that run the cron procedures at 12 AM on 15th of each month
 def monthly_promotion_brochure_job():
@@ -68,24 +66,19 @@ def monthly_promotion_brochure_job():
         print(f"monthly_promotion_brochure_auto_job() executed at {datetime.now()} !\n")
         
     except Exception as e:
-        print(f"{str(e)}")
+        print(f"{str(e)}") 
 
-@app.schedule(
-    schedule="0 30 0 15 * *",  # Runs at 00:30 UTC on the 15th of each month
-    arg_name="mytimer",
-    run_on_startup=False
-)
-def monthly_promo_timer_trigger(mytimer: func.TimerRequest) -> None:
-    utc_timestamp = datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat()
-    
+def main(mytimer: func.TimerRequest) -> None:
+    utc_timestamp = datetime.now(datetime.timezone.utc).replace(
+        tzinfo=datetime.timezone.utc).isoformat()
+
     if mytimer.past_due:
         logging.warning('The timer is past due!')
 
-    logging.info(f'Python timer trigger function started at {utc_timestamp}')
-    
     try:
-        monthly_promotion_brochure_job()
+        logging.info(f"Starting monthly promotion brochure job at {utc_timestamp}")
+        monthly_promotion_brochure_job()  # Call your existing function
         logging.info("Monthly promotion brochure job completed successfully")
     except Exception as e:
-        logging.error(f"Error executing monthly promotion job: {str(e)}")
+        logging.error(f"Error in monthly promotion brochure job: {str(e)}")
         raise
