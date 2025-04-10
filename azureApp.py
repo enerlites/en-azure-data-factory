@@ -10,7 +10,7 @@ import pandas as pd
 from io import BytesIO
 from dotenv import load_dotenv
 from urllib.parse import quote
-from IPython import display
+# from IPython import display
 from sqlalchemy import create_engine
 import urllib.parse
 import schedule 
