@@ -1,3 +1,6 @@
 .env
 .DS_Store
 /data/
+.vscode
+/sku-promo-auto/.dev
+/sku-promo-auto/.env
